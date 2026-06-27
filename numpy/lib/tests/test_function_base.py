@@ -2101,6 +2101,40 @@ class TestVectorize:
         assert_array_equal(np.vectorize(lambda x: x, signature="(i)->(j)",
                                         otypes=[otype])(arr), arr)
 
+    def test_otype_matches_python_type_consistency_gh_31770(self):
+        for dtype in (np.int8, np.int32, np.int64, np.float32, np.float64):
+            seen_types = []
+            f = vectorize(lambda x: seen_types.append(type(x)) or x)
+            f(np.array([1, 2, 3], dtype=dtype))
+            assert len(set(seen_types)) == 1, (
+                f"inconsistent scalar types passed to func for dtype={dtype}: "
+                f"{seen_types}"
+            )
+            assert seen_types[0] is dtype, (
+                f"expected {dtype}, got {seen_types[0]}"
+            )
+
+    def test_otype_matches_python_type_consistency_datetime64_gh_31382(self):
+        for unit in ("Y", "M", "D", "us", "ms", "ns", "as"):
+            seen_types = []
+            f = vectorize(lambda x: seen_types.append(type(x)) or x)
+            f(np.arange(0, 3, dtype=f"M8[{unit}]"))
+            assert len(set(seen_types)) == 1, (
+                f"inconsistent scalar types passed to func for "
+                f"datetime64[{unit}]: {seen_types}"
+            )
+            assert seen_types[0] is np.datetime64, (
+                f"expected np.datetime64, got {seen_types[0]}"
+            )
+
+    def test_subclasses_still_propagate(self):
+        class subclass(np.ndarray):
+            pass
+
+        v = np.array([1, 2, 3]).view(subclass)
+        r = vectorize(lambda x: x * 2)(v)
+        assert type(r) is subclass
+
 
 class TestLeaks:
     class A:

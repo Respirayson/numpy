@@ -2606,7 +2606,14 @@ class vectorize:
         else:
             ufunc, otypes = self._get_ufunc_and_otypes(func=func, args=args)
             # gh-29196: `dtype=object` should eventually be removed
-            args = [asanyarray(a, dtype=object) for a in args]
+            object_args = []
+            for a in args:
+                out = asanyarray(a, dtype=object)
+                a = asanyarray(a)
+                for i in range(a.size):
+                    out.flat[i] = a.flat[i]
+                object_args.append(out)
+            args = object_args
             outputs = ufunc(*args, out=...)
 
             if ufunc.nout == 1:
